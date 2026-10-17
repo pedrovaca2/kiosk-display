@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Kiosk Nexus 7</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #0b0f19; color: #f1f5f9; height: 100vh; display: flex; flex-direction: column; padding: 12px; overflow: hidden; }
+    .grid { display: grid; grid-template-columns: 1fr 1.35fr; grid-gap: 12px; height: 100%; }
+    .col { display: flex; flex-direction: column; gap: 12px; height: 100%; }
+    .card { background: #1e293b; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; border: 1px solid #334155; position: relative; }
+    
+    .title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-bottom: 4px; }
+    
+    /* 1. Recuadro de la Hora */
+    .time-card {
+      flex: 0 0 auto;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 10px 14px;
+    }
+    .time {
+      font-size: 6rem;
+      font-weight: bold;
+      color: #38bdf8;
+      line-height: 1;
+      text-align: center;
+    }
+
+    /* 2. Recuadro de Clima */
+    .weather-card {
+      flex: 0 0 auto;
+      padding: 12px 14px;
+    }
+    .weather-current {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .weather-left {
+      display: flex;
+      flex-direction: column;
+    }
+    .weather-temp {
+      font-size: 3.4rem;
+      font-weight: bold;
+      color: #fbbf24;
+      line-height: 1;
+    }
+    .weather-today-range {
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: #cbd5e1;
+      margin-top: 4px;
+    }
+    .weather-icon-box {
+      width: 60px;
+      height: 60px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .weather-icon-box svg {
+      width: 54px;
+      height: 54px;
+    }
+    
+    .forecast-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #334155;
+    }
+    .forecast-day {
+      background: #0f172a;
+      border-radius: 8px;
+      padding: 6px 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+    .forecast-day-name { font-size: 0.85rem; color: #94a3b8; font-weight: 600; text-transform: capitalize; }
+    .forecast-day-icon svg { width: 28px; height: 28px; margin: 2px 0; }
+    .forecast-day-temp { font-size: 0.95rem; font-weight: bold; color: #f1f5f9; }
+
+    /* Calendario Mensual + Próximo Feriado */
+    .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .cal-month-title { font-size: 1.5rem; font-weight: bold; color: #e2e8f0; text-transform: capitalize; }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+    .cal-day-name { font-size: 1.05rem; color: #64748b; font-weight: 600; padding: 2px 0; }
+    .cal-day { font-size: 1.3rem; padding: 4px 0; border-radius: 6px; color: #cbd5e1; }
+    .cal-day.empty { visibility: hidden; }
+    .cal-day.today { background: #0284c7; color: #ffffff; font-weight: bold; box-shadow: 0 0 8px rgba(2, 132, 199, 0.6); }
+    .cal-day.holiday { color: #ef4444; font-weight: bold; }
+    .cal-day.today.holiday { color: #fca5a5; }
+
+    .next-holiday-banner {
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid #334155;
+      font-size: 0.95rem;
+      color: #94a3b8;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .next-holiday-banner strong {
+      color: #f87171;
+      font-weight: 600;
+    }
+
+    /* Crypto: Título Grande y Gráficos BTC */
+    .btc-banner-card {
+      flex: 0 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+    }
+    .btc-main-price {
+      font-size: 3.5rem;
+      font-weight: bold;
+      color: #34d399;
+      line-height: 1;
+    }
+    .crypto-card {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .crypto-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2px;
+    }
+    .legend {
+      display: flex;
+      gap: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .legend-sma50 { color: #facc15; }
+    .legend-sma200 { color: #fb923c; }
+    
+    .canvas-container { position: relative; flex: 1; width: 100%; min-height: 0; }
+    .candle-canvas { width: 100%; height: 100%; display: block; }
+  </style>
+</head>
+<body>
+
+  <div class="grid">
+    <!-- Columna Izquierda -->
+    <div class="col">
+      <!-- Hora Centrada (6rem) -->
+      <div class="card time-card">
+        <div class="time" id="clock">--:--</div>
+      </div>
+
+      <!-- Clima Tucumán -->
+      <div class="card weather-card">
+        <div class="title">San Miguel de Tucumán</div>
+        <div class="weather-current">
+          <div class="weather-left">
+            <div class="weather-temp" id="weather">-- °C</div>
+            <div class="weather-today-range" id="weather-today-range">--° / --°</div>
+          </div>
+          <div class="weather-icon-box" id="weather-icon"></div>
+        </div>
+        <div class="forecast-row" id="forecast-row"></div>
+      </div>
+
+      <!-- Calendario Mensual -->
+      <div class="card" style="flex: 1;">
+        <div class="cal-header">
+          <div class="cal-month-title" id="cal-title">Mes</div>
+        </div>
+        <div class="cal-grid" id="cal-days-head">
+          <div class="cal-day-name">D</div>
+          <div class="cal-day-name">L</div>
+          <div class="cal-day-name">M</div>
+          <div class="cal-day-name">M</div>
+          <div class="cal-day-name">J</div>
+          <div class="cal-day-name">V</div>
+          <div class="cal-day-name">S</div>
+        </div>
+        <div class="cal-grid" id="cal-body"></div>
+        
+        <!-- Próximo Feriado -->
+        <div class="next-holiday-banner" id="next-holiday-banner">
+          <span>Próximo feriado:</span>
+          <strong id="next-holiday-info">Calculando...</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Columna Derecha -->
+    <div class="col">
+      <!-- Precio Titular de BTC (Sin decimales) -->
+      <div class="card btc-banner-card">
+        <span class="title" style="margin: 0;">Bitcoin (BTC/USDT)</span>
+        <span class="btc-main-price" id="btc-banner-price">--</span>
+      </div>
+
+      <!-- BTC 24 Horas -->
+      <div class="card crypto-card">
+        <div class="crypto-header">
+          <span class="title">BTC · 24 Hs (1h)</span>
+          <div class="legend">
+            <span class="legend-sma50">― SMA 50</span>
+            <span class="legend-sma200">― SMA 200</span>
+          </div>
+        </div>
+        <div class="canvas-container">
+          <canvas id="btc-24h-canvas" class="candle-canvas"></canvas>
+        </div>
+      </div>
+
+      <!-- BTC 30 Días -->
+      <div class="card crypto-card">
+        <div class="crypto-header">
+          <span class="title">BTC · 30 Días (1d)</span>
+          <div class="legend">
+            <span class="legend-sma50">― SMA 50</span>
+            <span class="legend-sma200">― SMA 200</span>
+          </div>
+        </div>
+        <div class="canvas-container">
+          <canvas id="btc-30d-canvas" class="candle-canvas"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let lastRenderedDay = null;
+
+    // 1. Reloj en tiempo real
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('clock').textContent = now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
+      
+      if (lastRenderedDay !== null && lastRenderedDay !== now.getDate()) {
+        renderCalendar();
+      }
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // 2. Base de Feriados Nacionales de Argentina con nombres
+    function getAllArgentinaHolidays(year) {
+      const list = [
+        { m: 1, d: 1, name: 'Año Nuevo' },
+        { m: 3, d: 24, name: 'Memoria por la Verdad y Justicia' },
+        { m: 4, d: 2, name: 'Veteranos de Malvinas' },
+        { m: 5, d: 1, name: 'Día del Trabajador' },
+        { m: 5, d: 25, name: 'Revolución de Mayo' },
+        { m: 6, d: 20, name: 'Paso a la Inmortalidad de Belgrano' },
+        { m: 7, d: 9, name: 'Día de la Independencia' },
+        { m: 12, d: 8, name: 'Inmaculada Concepción' },
+        { m: 12, d: 25, name: 'Navidad' }
+      ];
+
+      const movable = {
+        2024: [
+          { m: 2, d: 12, name: 'Carnaval' }, { m: 2, d: 13, name: 'Carnaval' },
+          { m: 3, d: 29, name: 'Viernes Santo' }, { m: 6, d: 17, name: 'Paso a la Inmortalidad de Güemes' },
+          { m: 10, d: 11, name: 'Feriado Turístico' }, { m: 10, d: 12, name: 'Diversidad Cultural' },
+          { m: 11, d: 18, name: 'Soberanía Nacional' }
+        ],
+        2025: [
+          { m: 3, d: 3, name: 'Carnaval' }, { m: 3, d: 4, name: 'Carnaval' },
+          { m: 4, d: 18, name: 'Viernes Santo' }, { m: 5, d: 2, name: 'Feriado Turístico' },
+          { m: 6, d: 16, name: 'Paso a la Inmortalidad de Güemes' }, { m: 8, d: 15, name: 'Feriado Turístico' },
+          { m: 8, d: 17, name: 'Paso a la Inmortalidad de San Martín' }, { m: 10, d: 12, name: 'Diversidad Cultural' },
+          { m: 11, d: 21, name: 'Feriado Turístico' }, { m: 11, d: 24, name: 'Soberanía Nacional' }
+        ],
+        2026: [
+          { m: 2, d: 16, name: 'Carnaval' }, { m: 2, d: 17, name: 'Carnaval' },
+          { m: 4, d: 3, name: 'Viernes Santo' }, { m: 6, d: 15, name: 'Paso a la Inmortalidad de Güemes' },
+          { m: 7, d: 10, name: 'Feriado Turístico' }, { m: 8, d: 17, name: 'Paso a la Inmortalidad de San Martín' },
+          { m: 10, d: 12, name: 'Diversidad Cultural' }, { m: 11, d: 23, name: 'Soberanía Nacional' }
+        ]
+      };
+
+      if (movable[year]) {
+        return list.concat(movable[year]);
+      }
+      return list;
+    }
+
+    // 3. Calendario Mensual y Próximo Feriado
+    function renderCalendar() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      const today = now.getDate();
+      lastRenderedDay = today;
+
+      document.getElementById('cal-title').textContent = now.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+
+      const holidaysList = getAllArgentinaHolidays(year);
+      const holidaySet = new Set(holidaysList.map(h => `${h.m}-${h.d}`));
+
+      const firstDayIndex = new Date(year, month, 1).getDay();
+      const totalDays = new Date(year, month + 1, 0).getDate();
+
+      const calBody = document.getElementById('cal-body');
+      calBody.innerHTML = '';
+
+      for (let i = 0; i < firstDayIndex; i++) {
+        const emptyCell = document.createElement('div');
+        emptyCell.className = 'cal-day empty';
+        calBody.appendChild(emptyCell);
+      }
+
+      for (let day = 1; day <= totalDays; day++) {
+        const dayCell = document.createElement('div');
+        let classes = 'cal-day';
+        
+        if (day === today) classes += ' today';
+        if (holidaySet.has(`${month + 1}-${day}`)) classes += ' holiday';
+
+        dayCell.className = classes;
+        dayCell.textContent = day;
+        calBody.appendChild(dayCell);
+      }
+
+      // Calcular próximo feriado
+      const todayMidnight = new Date(year, month, today);
+      let upcoming = [];
+
+      [year, year + 1].forEach(y => {
+        getAllArgentinaHolidays(y).forEach(h => {
+          const hDate = new Date(y, h.m - 1, h.d);
+          if (hDate >= todayMidnight) {
+            upcoming.push({ date: hDate, name: h.name });
+          }
+        });
+      });
+
+      upcoming.sort((a, b) => a.date - b.date);
+
+      if (upcoming.length > 0) {
+        const next = upcoming[0];
+        const diffDays = Math.round((next.date - todayMidnight) / (1000 * 60 * 60 * 24));
+        const formattedDate = next.date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+        
+        let label = '';
+        if (diffDays === 0) {
+          label = `¡Hoy! (${next.name})`;
+        } else if (diffDays === 1) {
+          label = `Mañana (${next.name})`;
+        } else {
+          label = `${formattedDate} · ${next.name} (en ${diffDays} días)`;
+        }
+
+        document.getElementById('next-holiday-info').textContent = label;
+      }
+    }
+    renderCalendar();
+
+    // 4. Iconos Meteorológicos
+    const icons = {
+      sun: `<svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`,
+      moon: `<svg viewBox="0 0 24 24" fill="none" stroke="#93c5fd" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`,
+      cloud: `<svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>`,
+      rain: `<svg viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 13v6M8 13v6M12 15v6M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25"/></svg>`,
+      thunder: `<svg viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`
+    };
+
+    function getWeatherIcon(code, isDay = true) {
+      if (code === 0) return isDay ? icons.sun : icons.moon;
+      if (code >= 1 && code <= 3) return icons.cloud;
+      if (code >= 51 && code <= 67) return icons.rain;
+      if (code >= 80 && code <= 82) return icons.rain;
+      if (code >= 95) return icons.thunder;
+      return icons.cloud;
+    }
+
+    // 5. Clima Open-Meteo
+    async function updateWeather() {
+      try {
+        const url = 'https://api.open-meteo.com/v1/forecast?latitude=-26.8241&longitude=-65.2226&current_weather=true&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=America%2FArgentina%2FTucuman';
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        const current = data.current_weather;
+        document.getElementById('weather').textContent = `${Math.round(current.temperature)}°C`;
+        document.getElementById('weather-icon').innerHTML = getWeatherIcon(current.weathercode, current.is_day === 1);
+
+        const minToday = Math.round(data.daily.temperature_2m_min[0]);
+        const maxToday = Math.round(data.daily.temperature_2m_max[0]);
+        document.getElementById('weather-today-range').textContent = `Mín: ${minToday}°C · Máx: ${maxToday}°C`;
+
+        const forecastContainer = document.getElementById('forecast-row');
+        forecastContainer.innerHTML = '';
+        for (let i = 1; i <= 3; i++) {
+          const dateStr = data.daily.time[i];
+          const d = new Date(dateStr + 'T00:00:00');
+          const dayName = d.toLocaleDateString('es-AR', { weekday: 'short' });
+          const dayIcon = getWeatherIcon(data.daily.weathercode[i], true);
+          const min = Math.round(data.daily.temperature_2m_min[i]);
+          const max = Math.round(data.daily.temperature_2m_max[i]);
+
+          const dayEl = document.createElement('div');
+          dayEl.className = 'forecast-day';
+          dayEl.innerHTML = `
+            <span class="forecast-day-name">${dayName}</span>
+            <div class="forecast-day-icon">${dayIcon}</div>
+            <span class="forecast-day-temp">${min}° / ${max}°</span>
+          `;
+          forecastContainer.appendChild(dayEl);
+        }
+      } catch (e) {
+        console.error('Error clima', e);
+      }
+    }
+    setInterval(updateWeather, 900000);
+    updateWeather();
+
+    // 6. Cálculo SMA
+    function calculateSMA(candles, period) {
+      const sma = [];
+      for (let i = 0; i < candles.length; i++) {
+        if (i < period - 1) {
+          sma.push(null);
+        } else {
+          let sum = 0;
+          for (let j = 0; j < period; j++) {
+            sum += candles[i - j].close;
+          }
+          sma.push(sum / period);
+        }
+      }
+      return sma;
+    }
+
+    // 7. Dibujo Velas en Canvas
+    function drawCandlesticks(canvasId, candles, sma50, sma200, displayCount, label) {
+      const canvas = document.getElementById(canvasId);
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      if (width === 0 || height === 0) return;
+
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, width, height);
+
+      const viewCandles = candles.slice(-displayCount);
+      const viewSma50 = sma50.slice(-displayCount);
+      const viewSma200 = sma200.slice(-displayCount);
+
+      let min = Infinity;
+      let max = -Infinity;
+
+      viewCandles.forEach(c => {
+        if (c.low < min) min = c.low;
+        if (c.high > max) max = c.high;
+      });
+      viewSma50.forEach(v => {
+        if (v !== null) {
+          if (v < min) min = v;
+          if (v > max) max = v;
+        }
+      });
+      viewSma200.forEach(v => {
+        if (v !== null) {
+          if (v < min) min = v;
+          if (v > max) max = v;
+        }
+      });
+
+      const paddingTop = 18;
+      const paddingBottom = 18;
+      const drawableHeight = height - paddingTop - paddingBottom;
+      const range = (max - min) || 1;
+      const stepX = width / displayCount;
+      const candleWidth = Math.max(stepX * 0.65, 3);
+
+      const getY = val => height - paddingBottom - ((val - min) / range) * drawableHeight;
+
+      ctx.setLineDash([4, 4]);
+      ctx.lineWidth = 1;
+      ctx.font = '11px sans-serif';
+
+      ctx.strokeStyle = '#334155';
+      ctx.beginPath();
+      ctx.moveTo(0, getY(max));
+      ctx.lineTo(width, getY(max));
+      ctx.stroke();
+
+      ctx.fillStyle = '#4ade80';
+      ctx.fillText(`Max (${label}): $${Math.round(max).toLocaleString()}`, 6, getY(max) - 4);
+
+      ctx.beginPath();
+      ctx.moveTo(0, getY(min));
+      ctx.lineTo(width, getY(min));
+      ctx.stroke();
+
+      ctx.fillStyle = '#f87171';
+      ctx.fillText(`Min (${label}): $${Math.round(min).toLocaleString()}`, 6, getY(min) + 13);
+
+      ctx.setLineDash([]);
+
+      viewCandles.forEach((c, idx) => {
+        const isUp = c.close >= c.open;
+        const color = isUp ? '#22c55e' : '#ef4444';
+        const centerX = idx * stepX + stepX / 2;
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(centerX, getY(c.high));
+        ctx.lineTo(centerX, getY(c.low));
+        ctx.stroke();
+
+        const topY = getY(Math.max(c.open, c.close));
+        const bottomY = getY(Math.min(c.open, c.close));
+        const candleHeight = Math.max(bottomY - topY, 2);
+
+        ctx.fillStyle = color;
+        ctx.fillRect(centerX - candleWidth / 2, topY, candleWidth, candleHeight);
+      });
+
+      function drawSMALine(smaArray, strokeColor) {
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        let started = false;
+
+        smaArray.forEach((val, idx) => {
+          if (val === null) return;
+          const x = idx * stepX + stepX / 2;
+          const y = getY(val);
+          if (!started) {
+            ctx.moveTo(x, y);
+            started = true;
+          } else {
+            ctx.lineTo(x, y);
+          }
+        });
+        ctx.stroke();
+      }
+
+      drawSMALine(viewSma200, '#fb923c');
+      drawSMALine(viewSma50, '#facc15');
+    }
+
+    // 8. Carga de Velas Binance y Precio de BTC sin decimales
+    let btcState = {
+      data24h: null, sma50_24h: null, sma200_24h: null,
+      data30d: null, sma50_30d: null, sma200_30d: null
+    };
+
+    async function updateBtcData() {
+      try {
+        const [res24h, res30d] = await Promise.all([
+          fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=250'),
+          fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1d&limit=250')
+        ]);
+
+        const raw24h = await res24h.json();
+        const raw30d = await res30d.json();
+
+        const mapCandles = raw => raw.map(d => ({
+          open: parseFloat(d[1]), high: parseFloat(d[2]), low: parseFloat(d[3]), close: parseFloat(d[4])
+        }));
+
+        btcState.data24h = mapCandles(raw24h);
+        btcState.sma50_24h = calculateSMA(btcState.data24h, 50);
+        btcState.sma200_24h = calculateSMA(btcState.data24h, 200);
+
+        btcState.data30d = mapCandles(raw30d);
+        btcState.sma50_30d = calculateSMA(btcState.data30d, 50);
+        btcState.sma200_30d = calculateSMA(btcState.data30d, 200);
+
+        // Precio actual entero sin decimales
+        const currentPrice = Math.round(btcState.data24h[btcState.data24h.length - 1].close);
+        document.getElementById('btc-banner-price').textContent = `$${currentPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+
+        drawCandlesticks('btc-24h-canvas', btcState.data24h, btcState.sma50_24h, btcState.sma200_24h, 24, '24h');
+        drawCandlesticks('btc-30d-canvas', btcState.data30d, btcState.sma50_30d, btcState.sma200_30d, 30, '30d');
+      } catch (e) {
+        console.error('Error cargando datos BTC', e);
+      }
+    }
+
+    window.addEventListener('resize', () => {
+      if (btcState.data24h) drawCandlesticks('btc-24h-canvas', btcState.data24h, btcState.sma50_24h, btcState.sma200_24h, 24, '24h');
+      if (btcState.data30d) drawCandlesticks('btc-30d-canvas', btcState.data30d, btcState.sma50_30d, btcState.sma200_30d, 30, '30d');
+    });
+
+    setInterval(updateBtcData, 60000);
+    updateBtcData();
+  </script>
+</body>
+</html>
